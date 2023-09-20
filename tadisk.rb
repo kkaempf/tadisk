@@ -254,9 +254,12 @@ class Adu
   attr_reader :count, :at
   SIZE = 512
   def self.from_data data
+#    STDERR.puts "Ada.from_data"
     adus = []
-    off = 28
+    off = 0x1c # 28 dez
     loop do
+      break if data[off,1] == ' '
+#      STDERR.puts data[off,4].split("").map{ |v| "0x#{v.ord.to_s(16)} "}.join("")
       adu = Adu.new(data[off,4])
       break if adu.count == 0
       adus << adu
@@ -370,7 +373,7 @@ class TaDir
       adu = Adu.new(1,8) # system adu, size 1, start at 8
       @disk.seek adu.position
       data = @disk.get adu.size
-      adus = Adu.from_data data[256,256]
+      adus = Adu.from_data data[256,128]
 #      STDERR.puts "Found #{adus.size} adus for system dir"
     end
     data = ""
@@ -385,7 +388,7 @@ class TaDir
       break if name.empty?
       begin
         number += 1
-        entry = DirEntry.new(self, name, data[number*256, 256])
+        entry = DirEntry.new(self, name, data[number*256, 128])
         @entries << entry
         if entry.is_directory?
           @entries += TaDir.new(disk, entry.adus, self).entries
@@ -394,7 +397,7 @@ class TaDir
         STDERR.puts "Bad directory (after #{@entries.length} entries): #{e}"
         break
       end
-      break if number == 31 # 32 * 8 = 256 bytes directory
+      break if number == 15 # 16 * 8 = 128 bytes directory
     end
   end
   def to_s
@@ -459,16 +462,14 @@ class Volume
              end
   end
   def to_s
-    "\
-    Volume Identifier                 #{@ident.inspect}
-    Volume Accessibility Indicator    #{(@access==' ')?'- unrestricted -':@access.inspect}
-    Owner                             #{@owner.inspect}
-    Surface Indicator                 #{@surface}
-    Physical Record Length Identifier #{@rlen} bytes per physical record
-    Sector Sequence Indicator         #{@seq.inspect}
-    File Label Allocation             #{@alloc}
-    Label Standard Version            #{@version.inspect}
-"
+    @ident.inspect
+#    Volume Accessibility Indicator    #{(@access==' ')?'- unrestricted -':@access.inspect}
+#    Owner                             #{@owner.inspect}
+#    Surface Indicator                 #{@surface}
+#    Physical Record Length Identifier #{@rlen} bytes per physical record
+#    Sector Sequence Indicator         #{@seq.inspect}
+#    File Label Allocation             #{@alloc}
+#    Label Standard Version            #{@version.inspect}
   end
 end
 
@@ -485,6 +486,7 @@ class TaDisk
     @disk = Disk.new imagename
     # VOL1 information
     @volume = Volume.new @disk
+    puts "Volume: #{@volume}"
     # system dir 
     @directory = TaDir.new @disk
   end
